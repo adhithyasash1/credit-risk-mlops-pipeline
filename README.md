@@ -9,7 +9,7 @@ The repository is intentionally production-shaped while staying small enough to
 study: every major lifecycle stage is represented in code, config, tests, or
 deployment manifests.
 
-## End-to-End ML System Design
+## System Design
 
 ### System Goal
 
