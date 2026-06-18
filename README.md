@@ -153,6 +153,11 @@ Feast is the main contract between model development and live inference:
 The repo includes saved load-test and autoscaling evidence under
 `loadtest/reports/`.
 
+![Grafana dashboard showing prediction rate by decision, p95 latency, and reject fraction](docs/assets/grafana-credit-risk-dashboard.png)
+
+Grafana dashboard snapshot for `Credit-Risk-Serve`: prediction rate by decision,
+p95 request latency, and reject fraction during the observed load window.
+
 | Report | What it shows |
 | --- | --- |
 | `wrk_20260618-103500.txt` | 2-minute `wrk` run against the API with 8 threads and 100 connections: **103.96 req/s**, p50 **715 ms**, p90 **1.46 s**, p99 **1.91 s**, with timeout pressure under load. |
