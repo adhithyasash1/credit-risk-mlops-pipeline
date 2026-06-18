@@ -6,3 +6,8 @@ bq_dataset: credit_risk
 bq_table: applications
 raw_data_path: gs://credit-risk-mlops-0812-bucket/data/raw/german_credit.csv
 target_column: target
+
+# MLflow
+mlflow_tracking_uri: https://mlflow-server-t2o3hekgva-uc.a.run.app
+mlflow_experiment: credit-risk
+model_name: credit-risk-model
