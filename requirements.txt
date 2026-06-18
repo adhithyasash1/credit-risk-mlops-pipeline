@@ -1,0 +1,10 @@
+pandas
+scikit-learn
+xgboost
+joblib
+pyyaml
+google-cloud-storage
+google-cloud-bigquery
+google-cloud-bigquery-storage
+pandas-gbq
+db-dtypes
