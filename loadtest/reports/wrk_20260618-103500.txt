@@ -1,0 +1,14 @@
+Running 2m test @ http://35.224.214.57
+  8 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   807.69ms  436.52ms   2.00s    65.31%
+    Req/Sec    15.00      8.84    60.00     72.77%
+  Latency Distribution
+     50%  715.17ms
+     75%    1.11s 
+     90%    1.46s 
+     99%    1.91s 
+  12486 requests in 2.00m, 2.34MB read
+  Socket errors: connect 0, read 0, write 0, timeout 624
+Requests/sec:    103.96
+Transfer/sec:     19.94KB

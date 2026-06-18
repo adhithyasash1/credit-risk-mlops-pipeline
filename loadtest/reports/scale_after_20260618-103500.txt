@@ -1,0 +1,9 @@
+NAME                                                 REFERENCE                   TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/credit-serving   Deployment/credit-serving   cpu: 221%/60%   2         5         5          86m
+
+NAME                                  READY   STATUS    RESTARTS   AGE
+pod/credit-serving-7967c4c7c4-98nb7   1/1     Running   0          59m
+pod/credit-serving-7967c4c7c4-dngcb   1/1     Running   0          60m
+pod/credit-serving-7967c4c7c4-tbjmj   1/1     Running   0          4m
+pod/credit-serving-7967c4c7c4-vdjvg   1/1     Running   0          3m59s
+pod/credit-serving-7967c4c7c4-wfsbw   1/1     Running   0          4m
