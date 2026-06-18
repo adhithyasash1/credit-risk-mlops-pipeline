@@ -1,27 +1,25 @@
 """
 app.py — FastAPI serving for the credit-risk model.
 
-Endpoints:
-  GET  /health                  liveness + model status
-  POST /predict                 score raw applicant JSON
-  GET  /predict/{application_id} score by ID (features from Feast online store)
-  POST /explain                 SHAP top feature contributions for a decision
+Loads the champion model artifact directly from GCS (decoupled from MLflow, so
+the serving image carries no experiment-tracking stack). Fetches features from
+the Feast online store for by-ID scoring; SHAP for explanations.
 """
 import os
 from contextlib import asynccontextmanager
 
-import mlflow
-import mlflow.sklearn
+import joblib
 import pandas as pd
 import scipy.sparse
 import shap
 from feast import FeatureStore
 from fastapi import FastAPI, HTTPException
+from google.cloud import storage
 from pydantic import BaseModel
 
-MODEL_URI = os.environ.get("MODEL_URI", "models:/credit-risk-model@champion")
-TRACKING_URI = os.environ.get(
-    "MLFLOW_TRACKING_URI", "https://mlflow-server-t2o3hekgva-uc.a.run.app"
+MODEL_GCS_URI = os.environ.get(
+    "MODEL_GCS_URI",
+    "gs://credit-risk-mlops-0812-bucket/models/credit-risk/champion/model.joblib",
 )
 FEAST_REPO = os.environ.get("FEAST_REPO", "feature_repo")
 
@@ -59,10 +57,15 @@ class Application(BaseModel):
     foreign_worker: str
 
 
+def _load_model(gcs_uri: str):
+    bucket, blob = gcs_uri[len("gs://"):].split("/", 1)
+    storage.Client().bucket(bucket).blob(blob).download_to_filename("/tmp/model.joblib")
+    return joblib.load("/tmp/model.joblib")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    mlflow.set_tracking_uri(TRACKING_URI)
-    model = mlflow.sklearn.load_model(MODEL_URI)
+    model = _load_model(MODEL_GCS_URI)
     state["model"] = model
     state["prep"] = model.named_steps["prep"]
     state["explainer"] = shap.TreeExplainer(model.named_steps["clf"])
