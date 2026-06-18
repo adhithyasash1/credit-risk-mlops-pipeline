@@ -1,0 +1,11 @@
+project: credit_risk
+provider: gcp
+registry: gs://credit-risk-mlops-0812-bucket/feast/registry.db
+offline_store:
+  type: bigquery
+  dataset: credit_risk
+online_store:
+  type: datastore
+  project_id: credit-risk-mlops-0812
+  namespace: feast
+entity_key_serialization_version: 3

@@ -1,0 +1,103 @@
+"""
+tune.py — Optuna HPO for an XGBoost credit-risk model, fed by Feast.
+
+Run from project root:  python3 -m src.training.tune --trials 30
+"""
+import argparse
+import mlflow
+import mlflow.sklearn
+import numpy as np
+import optuna
+from mlflow.models import infer_signature
+from mlflow.tracking import MlflowClient
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import roc_auc_score, roc_curve
+from xgboost import XGBClassifier
+
+from src.features.preprocess import load_config, build_preprocessor
+from src.features.feast_loader import load_training_data
+
+
+def ks_statistic(y_true, y_score):
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    return float(np.max(tpr - fpr))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--trials", type=int, default=30)
+    args = parser.parse_args()
+
+    cfg = load_config()
+    mlflow.set_tracking_uri(cfg["mlflow_tracking_uri"])
+    mlflow.set_experiment(cfg["mlflow_experiment"])
+
+    # Features now come THROUGH Feast, not raw BigQuery.
+    X, y = load_training_data(cfg)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=42
+    )
+
+    neg, pos = int((y_train == 0).sum()), int((y_train == 1).sum())
+    spw = neg / pos
+
+    def make_model(params):
+        return Pipeline([
+            ("prep", build_preprocessor(X)),
+            ("clf", XGBClassifier(
+                **params, scale_pos_weight=spw, eval_metric="auc",
+                random_state=42, n_jobs=-1)),
+        ])
+
+    def objective(trial):
+        params = {
+            "n_estimators": trial.suggest_int("n_estimators", 100, 600),
+            "max_depth": trial.suggest_int("max_depth", 2, 6),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
+        }
+        with mlflow.start_run(nested=True):
+            mlflow.log_params(params)
+            auc = cross_val_score(make_model(params), X_train, y_train,
+                                  cv=5, scoring="roc_auc", n_jobs=-1).mean()
+            mlflow.log_metric("cv_auc", auc)
+            return auc
+
+    with mlflow.start_run(run_name="optuna-xgb-feast"):
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=args.trials)
+
+        best = study.best_params
+        mlflow.log_params({f"best_{k}": v for k, v in best.items()})
+        mlflow.log_metric("best_cv_auc", study.best_value)
+        print("Best CV AUC:", round(study.best_value, 4), "| params:", best)
+
+        model = make_model(best)
+        model.fit(X_train, y_train)
+        scores = model.predict_proba(X_test)[:, 1]
+        mlflow.log_metrics({
+            "test_auc": roc_auc_score(y_test, scores),
+            "test_ks": ks_statistic(y_test, scores),
+        })
+        print(f"Test AUC: {roc_auc_score(y_test, scores):.3f}")
+
+        signature = infer_signature(X_test, model.predict(X_test))
+        mlflow.sklearn.log_model(
+            sk_model=model, artifact_path="model",
+            signature=signature, input_example=X_test.iloc[:5],
+            registered_model_name=cfg["model_name"],
+        )
+
+    client = MlflowClient()
+    versions = client.search_model_versions(f"name='{cfg['model_name']}'")
+    latest = max(int(v.version) for v in versions)
+    client.set_registered_model_alias(cfg["model_name"], "champion", latest)
+    print(f"Set alias 'champion' -> version {latest}")
+
+
+if __name__ == "__main__":
+    main()
