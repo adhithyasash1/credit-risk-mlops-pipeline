@@ -1,5 +1,4 @@
-"""
-train.py — train + evaluate the credit-risk model, log everything to MLflow.
+"""Train and evaluate the baseline credit-risk model, then log it to MLflow.
 
 Run from the project root:  python3 -m src.training.train
 """
@@ -15,6 +14,7 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
 )
 
+from src.config import DEFAULT_RANDOM_STATE, DEFAULT_TEST_SIZE
 from src.features.preprocess import (
     load_config, load_data_from_bq, split_xy, build_preprocessor,
 )
@@ -35,15 +35,15 @@ def main():
     df = load_data_from_bq(cfg)
     X, y = split_xy(df, cfg["target_column"])
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
+        X, y, test_size=DEFAULT_TEST_SIZE, stratify=y, random_state=DEFAULT_RANDOM_STATE
     )
 
     params = {
         "model": "logistic_regression",
         "class_weight": "balanced",
         "max_iter": 1000,
-        "test_size": 0.2,
-        "random_state": 42,
+        "test_size": DEFAULT_TEST_SIZE,
+        "random_state": DEFAULT_RANDOM_STATE,
     }
 
     with mlflow.start_run() as run:
@@ -63,9 +63,9 @@ def main():
             "auc": roc_auc_score(y_test, scores),
             "ks": ks_statistic(y_test, scores),
             "accuracy": accuracy_score(y_test, preds),
-            "precision_macro": precision_score(y_test, preds, average="macro"),
-            "recall_macro": recall_score(y_test, preds, average="macro"),
-            "f1_macro": f1_score(y_test, preds, average="macro"),
+            "precision_macro": precision_score(y_test, preds, average="macro", zero_division=0),
+            "recall_macro": recall_score(y_test, preds, average="macro", zero_division=0),
+            "f1_macro": f1_score(y_test, preds, average="macro", zero_division=0),
         }
         mlflow.log_metrics(metrics)
         print("Metrics:", {k: round(v, 3) for k, v in metrics.items()})

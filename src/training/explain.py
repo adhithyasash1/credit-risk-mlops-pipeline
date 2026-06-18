@@ -1,11 +1,13 @@
-"""
-explain.py — global SHAP explainability for the @champion model.
+"""Global SHAP explainability for the @champion model.
 
 Loads the champion model, computes SHAP values on the test set, and logs
 the summary plots to MLflow.
 
 Run from project root:  python3 -m src.training.explain
 """
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import matplotlib
 matplotlib.use("Agg")          # headless: render to file, no display
 import matplotlib.pyplot as plt
@@ -15,7 +17,9 @@ import scipy.sparse
 import shap
 from sklearn.model_selection import train_test_split
 
-from src.features.preprocess import load_config, load_data_from_bq, split_xy
+from src.config import DEFAULT_RANDOM_STATE, DEFAULT_TEST_SIZE
+from src.features.feast_loader import load_training_data
+from src.features.preprocess import load_config
 
 
 def main():
@@ -26,10 +30,9 @@ def main():
     # Pull the current champion straight from the registry by alias.
     model = mlflow.sklearn.load_model(f"models:/{cfg['model_name']}@champion")
 
-    df = load_data_from_bq(cfg)
-    X, y = split_xy(df, cfg["target_column"])
+    X, y = load_training_data(cfg)
     _, X_test, _, _ = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
+        X, y, test_size=DEFAULT_TEST_SIZE, stratify=y, random_state=DEFAULT_RANDOM_STATE
     )
 
     # Split the Pipeline: SHAP TreeExplainer needs the raw model + transformed X.
@@ -42,18 +45,22 @@ def main():
     explainer = shap.TreeExplainer(clf)
     shap_values = explainer.shap_values(Xt)
 
-    with mlflow.start_run(run_name="shap-explainability"):
+    with TemporaryDirectory() as tmpdir, mlflow.start_run(run_name="shap-explainability"):
+        tmpdir_path = Path(tmpdir)
+
         # Beeswarm: direction + magnitude of each feature's effect
+        summary_path = tmpdir_path / "shap_summary.png"
         shap.summary_plot(shap_values, Xt, feature_names=feat_names, show=False)
-        plt.savefig("shap_summary.png", dpi=120, bbox_inches="tight")
-        mlflow.log_artifact("shap_summary.png")
+        plt.savefig(summary_path, dpi=120, bbox_inches="tight")
+        mlflow.log_artifact(str(summary_path))
         plt.close()
 
         # Bar: mean |SHAP| ranking of feature importance
+        bar_path = tmpdir_path / "shap_importance_bar.png"
         shap.summary_plot(shap_values, Xt, feature_names=feat_names,
                           plot_type="bar", show=False)
-        plt.savefig("shap_importance_bar.png", dpi=120, bbox_inches="tight")
-        mlflow.log_artifact("shap_importance_bar.png")
+        plt.savefig(bar_path, dpi=120, bbox_inches="tight")
+        mlflow.log_artifact(str(bar_path))
         plt.close()
 
     print("Logged SHAP plots to MLflow.")

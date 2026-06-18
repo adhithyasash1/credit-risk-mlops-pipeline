@@ -6,6 +6,11 @@ metadata:
   labels: { app: credit-serving }
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels: { app: credit-serving }
   template:
@@ -18,6 +23,13 @@ spec:
         image: us-central1-docker.pkg.dev/credit-risk-mlops-0812/mlops-docker/credit-serving:latest
         ports:
         - containerPort: 8080
+        env:
+        - name: MODEL_GCS_URI
+          value: gs://credit-risk-mlops-0812-bucket/models/credit-risk/champion/model.joblib
+        - name: FEAST_REPO
+          value: feature_repo
+        - name: DECISION_THRESHOLD
+          value: "0.5"
         resources:
           requests: { cpu: "250m", memory: "512Mi" }
           limits:   { cpu: "1",    memory: "1536Mi" }

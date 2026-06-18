@@ -1,9 +1,12 @@
 """Feast feature definitions for the credit-risk model."""
+import os
 from datetime import timedelta
+
 from feast import Entity, FeatureView, Field, BigQuerySource, ValueType
 from feast.types import Float64, String
 
-PROJECT_ID = "credit-risk-mlops-0812"
+PROJECT_ID = os.getenv("PROJECT_ID", "credit-risk-mlops-0812")
+BQ_DATASET = os.getenv("BQ_DATASET", "credit_risk")
 
 application = Entity(
     name="application",
@@ -14,7 +17,7 @@ application = Entity(
 
 applications_source = BigQuerySource(
     name="applications_source",
-    table=f"{PROJECT_ID}.credit_risk.applications_fs",
+    table=f"{PROJECT_ID}.{BQ_DATASET}.applications_fs",
     timestamp_field="event_timestamp",
 )
 

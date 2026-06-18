@@ -2,7 +2,7 @@ name: CI-CD
 
 on:
   push:
-    branches: [version-1, main]
+    branches: [version-1, version-2, main]
   pull_request:
     branches: [main]
 

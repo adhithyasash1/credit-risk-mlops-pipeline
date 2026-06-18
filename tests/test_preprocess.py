@@ -1,4 +1,6 @@
 import pandas as pd
+import pytest
+
 from src.features.preprocess import split_xy, build_preprocessor
 
 
@@ -17,6 +19,11 @@ def test_split_xy_removes_target():
     assert X.shape == (4, 2)
 
 
+def test_split_xy_requires_target_column():
+    with pytest.raises(ValueError):
+        split_xy(_toy_df(), "missing")
+
+
 def test_build_preprocessor_transforms_to_finite_array():
     X, _ = split_xy(_toy_df(), "target")
     Xt = build_preprocessor(X).fit_transform(X)
@@ -30,3 +37,8 @@ def test_preprocessor_handles_unseen_category():
     unseen = pd.DataFrame({"amount": [5.0], "grade": ["z"]})
     out = pre.transform(unseen)
     assert out.shape[0] == 1
+
+
+def test_build_preprocessor_requires_feature_columns():
+    with pytest.raises(ValueError):
+        build_preprocessor(pd.DataFrame())

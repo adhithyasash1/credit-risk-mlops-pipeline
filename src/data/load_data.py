@@ -1,19 +1,14 @@
-"""
-load_data.py — Phase 1 data ingestion.
+"""Phase 1 data ingestion.
 
 Pulls the German Credit dataset (OpenML 'credit-g'), lands the raw CSV in GCS,
 and loads the structured table into BigQuery. Run once to populate the project's
 two data homes.
 """
-import yaml
 import pandas as pd
 from sklearn.datasets import fetch_openml
 from google.cloud import storage, bigquery
 
-
-def load_config(path="config/config.yaml"):
-    with open(path) as f:
-        return yaml.safe_load(f)
+from src.config import load_config, parse_gcs_uri
 
 
 def fetch_data() -> pd.DataFrame:
@@ -34,8 +29,7 @@ def fetch_data() -> pd.DataFrame:
 
 
 def upload_csv_to_gcs(df: pd.DataFrame, gcs_uri: str) -> None:
-    assert gcs_uri.startswith("gs://"), gcs_uri
-    bucket_name, blob_path = gcs_uri[len("gs://"):].split("/", 1)
+    bucket_name, blob_path = parse_gcs_uri(gcs_uri)
     blob = storage.Client().bucket(bucket_name).blob(blob_path)
     blob.upload_from_string(df.to_csv(index=False), content_type="text/csv")
     print(f"Uploaded raw CSV -> {gcs_uri}  ({len(df)} rows)")

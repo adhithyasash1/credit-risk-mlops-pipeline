@@ -1,11 +1,12 @@
-"""
-feast_loader.py — build the training set via Feast get_historical_features().
+"""Build the training set via Feast get_historical_features().
 
 Training reads features through the store (not raw BigQuery), so the SAME
-feature definitions feed both training and serving — no skew.
+feature definitions feed both training and serving - no skew.
 """
 from feast import FeatureStore
 from google.cloud import bigquery
+
+ENTITY_COLUMNS = ("application_id", "event_timestamp", "target")
 
 
 def load_training_data(cfg, repo_path="feature_repo"):
@@ -17,6 +18,9 @@ def load_training_data(cfg, repo_path="feature_repo"):
     entity_df = client.query(
         f"SELECT application_id, event_timestamp, target FROM `{table}`"
     ).to_dataframe()
+    missing = [column for column in ENTITY_COLUMNS if column not in entity_df.columns]
+    if missing:
+        raise ValueError(f"Feature spine is missing required columns: {', '.join(missing)}")
 
     fv = store.get_feature_view("credit_features")
     feature_names = [f.name for f in fv.features]
