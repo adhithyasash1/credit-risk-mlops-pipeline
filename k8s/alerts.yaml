@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: credit-serving-rules
+  namespace: credit
+  labels: { release: kps }          # so the kps Prometheus operator adopts it
+spec:
+  groups:
+  - name: credit-serving
+    rules:
+    - alert: CreditServingDown
+      expr: up{namespace="credit"} == 0
+      for: 2m
+      labels: { severity: critical }
+      annotations:
+        summary: "Credit serving target is down"
+        description: "Prometheus cannot scrape credit-serving for 2m."
+    - alert: HighRejectRate
+      expr: |
+        sum(rate(credit_predictions_total{decision="reject"}[10m]))
+        / sum(rate(credit_predictions_total[10m])) > 0.8
+      for: 5m
+      labels: { severity: warning }
+      annotations:
+        summary: "Reject rate >80% over 10m"
+        description: "Possible data drift or model issue — most applicants being rejected."

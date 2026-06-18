@@ -20,3 +20,4 @@ service-account*.json
 
 # NOTE: data/ is intentionally NOT ignored here — DVC manages data tracking
 #       and writes its own fine-grained .gitignore inside data/ subfolders.
+*.png

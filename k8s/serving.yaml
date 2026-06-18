@@ -12,7 +12,7 @@ spec:
     metadata:
       labels: { app: credit-serving }
     spec:
-      serviceAccountName: credit-ksa          # <- Workload Identity
+      serviceAccountName: credit-ksa
       containers:
       - name: serving
         image: us-central1-docker.pkg.dev/credit-risk-mlops-0812/mlops-docker/credit-serving:latest
@@ -21,14 +21,14 @@ spec:
         resources:
           requests: { cpu: "250m", memory: "512Mi" }
           limits:   { cpu: "1",    memory: "1536Mi" }
-        startupProbe:                          # tolerate the slow first boot
+        startupProbe:
           httpGet: { path: /health, port: 8080 }
           failureThreshold: 30
           periodSeconds: 5
-        readinessProbe:                        # only route traffic when ready
+        readinessProbe:
           httpGet: { path: /health, port: 8080 }
           periodSeconds: 10
-        livenessProbe:                         # restart if it wedges
+        livenessProbe:
           httpGet: { path: /health, port: 8080 }
           periodSeconds: 15
 ---
@@ -37,11 +37,13 @@ kind: Service
 metadata:
   name: credit-serving
   namespace: credit
+  labels: { app: credit-serving }
 spec:
   type: LoadBalancer
   selector: { app: credit-serving }
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 8080
 ---
 apiVersion: autoscaling/v2
@@ -61,3 +63,17 @@ spec:
     resource:
       name: cpu
       target: { type: Utilization, averageUtilization: 60 }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: credit-serving
+  namespace: credit
+  labels: { release: kps }          # so the kps Prometheus operator selects it
+spec:
+  selector:
+    matchLabels: { app: credit-serving }
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s

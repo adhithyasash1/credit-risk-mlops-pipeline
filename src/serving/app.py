@@ -1,9 +1,5 @@
 """
-app.py — FastAPI serving for the credit-risk model.
-
-Loads the champion model artifact directly from GCS (decoupled from MLflow, so
-the serving image carries no experiment-tracking stack). Fetches features from
-the Feast online store for by-ID scoring; SHAP for explanations.
+app.py — FastAPI serving for the credit-risk model, with Prometheus metrics.
 """
 import os
 from contextlib import asynccontextmanager
@@ -15,6 +11,8 @@ import shap
 from feast import FeatureStore
 from fastapi import FastAPI, HTTPException
 from google.cloud import storage
+from prometheus_client import Counter, Histogram
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
 MODEL_GCS_URI = os.environ.get(
@@ -30,6 +28,15 @@ FEATURES = [
     "other_payment_plans", "housing", "existing_credits", "job",
     "num_dependents", "own_telephone", "foreign_worker",
 ]
+
+# --- Custom ML metrics (scraped by Prometheus) ---
+PRED_COUNTER = Counter(
+    "credit_predictions_total", "Total predictions", ["decision"]
+)
+PROB_HIST = Histogram(
+    "credit_probability_default", "Predicted probability of default",
+    buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
+)
 
 state = {}
 
@@ -77,13 +84,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Credit Risk Scoring API", lifespan=lifespan)
 
+# Exposes /metrics with HTTP request count/latency/size, auto-instrumented.
+Instrumentator().instrument(app).expose(app)
+
 
 def _score(df: pd.DataFrame) -> dict:
     prob = float(state["model"].predict_proba(df)[:, 1][0])
-    return {
-        "probability_default": round(prob, 4),
-        "decision": "reject" if prob >= 0.5 else "approve",
-    }
+    decision = "reject" if prob >= 0.5 else "approve"
+    PRED_COUNTER.labels(decision=decision).inc()   # business metric
+    PROB_HIST.observe(prob)                          # distribution metric
+    return {"probability_default": round(prob, 4), "decision": decision}
 
 
 @app.get("/health")

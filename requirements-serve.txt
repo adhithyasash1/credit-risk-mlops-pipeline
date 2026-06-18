@@ -8,3 +8,4 @@ xgboost==3.3.0
 feast[gcp]==0.64.0
 fastapi
 uvicorn[standard]
+prometheus-fastapi-instrumentator

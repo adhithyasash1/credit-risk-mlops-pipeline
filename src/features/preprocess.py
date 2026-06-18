@@ -1,12 +1,8 @@
 """
 preprocess.py — load data from BigQuery and build the feature-transform pipeline.
-
-The preprocessor auto-detects numeric vs categorical columns so it stays correct
-even if the schema changes. It is returned UNFITTED; the training Pipeline fits it.
 """
 import yaml
 import pandas as pd
-from google.cloud import bigquery
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -19,6 +15,7 @@ def load_config(path="config/config.yaml"):
 
 
 def load_data_from_bq(cfg) -> pd.DataFrame:
+    from google.cloud import bigquery   # lazy: not needed for unit tests
     client = bigquery.Client(project=cfg["project_id"])
     table = f"{cfg['project_id']}.{cfg['bq_dataset']}.{cfg['bq_table']}"
     return client.query(f"SELECT * FROM `{table}`").to_dataframe()
