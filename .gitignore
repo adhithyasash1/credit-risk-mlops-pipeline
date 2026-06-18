@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Model artifacts (handled by GCS / MLflow, not git)
+*.joblib
+*.pkl
+models/
+
+# Secrets
+*-key.json
+service-account*.json
+.env
+
+# OS
+.DS_Store
+
+# NOTE: data/ is intentionally NOT ignored here — DVC manages data tracking
+#       and writes its own fine-grained .gitignore inside data/ subfolders.
